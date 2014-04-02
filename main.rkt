@@ -20,6 +20,11 @@
  apply-reduction-relation*/reachable ; reduction-relation term -> (term ...)
  ;; Produces all terms reachable in zero or more steps from t using reduction relation rel
 
+ apply-reduction-relation*/random ; reduction-relation term -> (term ...)
+ ;; Reduces the term according to the reduction relation, choosing the next term to reduce at random
+ ;; from the single-stepped reduced terms. Returns the final unreducible term (or loops forever if
+ ;; there is none)
+
  dict-set ; ((any_key any_val) ...) any_key any_val -> ((any_key any_val) ...)
  ;; Replaces the binding for the given key with the given value, or adds the binding if none exists
 
@@ -52,6 +57,9 @@
 
 ;; ---------------------------------------------------------------------------------------------------
 ;; Dictionary operations
+
+;; TODO: implement these with dict-set, dict-ref, etc. (or similar) instead, so that it's faster but
+;; has the same interface
 
 (define-metafunction
   all-lang
@@ -104,6 +112,9 @@
   (check-equal? (term (dict-lookup ,d3 c)) 3)
   (check-equal? (term (dict-lookup ,d3 d)) 6))
 
+;; ---------------------------------------------------------------------------------------------------
+;; Reduction relation application
+
 (define (apply-reduction-relation*/reachable rel t)
   (let loop ([worklist (list t)]
              [processed-terms (set)])
@@ -115,10 +126,20 @@
              [else (loop (append rest-worklist (apply-reduction-relation rel next-term))
                          (set-add processed-terms next-term))])])))
 
+(define (apply-reduction-relation*/random rel t)
+  (let loop ([current-term t])
+    (match (apply-reduction-relation rel current-term)
+      ['() current-term]
+      [next-terms (loop (list-ref next-terms (random (length next-terms))))])))
+
 (module+ test
   (define-language number-lang
     (e natural
-       (+ e e))
+       (+ e e)
+       x)
+    (C hole
+       (+ C e)
+       (+ e C))
     (E hole
        (+ E e)
        (+ natural E)))
@@ -139,7 +160,19 @@
          (list '(+ 1 2) 3))
   (check list-same-elements?
          (apply-reduction-relation*/reachable math-step '(+ (+ 1 2) (+ 3 4)))
-         (list '(+ (+ 1 2) (+ 3 4)) '(+ 3 (+ 3 4)) '(+ 3 7) 10)))
+         (list '(+ (+ 1 2) (+ 3 4)) '(+ 3 (+ 3 4)) '(+ 3 7) 10))
+
+  (define nondeterministic-math-step
+    (reduction-relation number-lang
+      (--> (in-hole C (+ natural_1 natural_2))
+           (in-hole C ,(+ (term natural_1) (term natural_2))))))
+
+  (check-equal?
+   (apply-reduction-relation*/random nondeterministic-math-step (term (+ (+ 1 1) (+ 2 2))))
+   6)
+  (check-equal?
+   (apply-reduction-relation*/random nondeterministic-math-step (term (+ (+ x 1) (+ 2 2))))
+   (term (+ (+ x 1) 4))))
 
 ;; ---------------------------------------------------------------------------------------------------
 ;; Filtering lists of name/value pairs
