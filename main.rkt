@@ -5,6 +5,12 @@
  different? ; any any -> boolean
  ;; Returns #t if the two terms are different terms; #f if they are the same term
 
+ distinct?
+ ;; (distinct? (any ...)) if all of the terms in the list are distinct from one another
+
+ subset?
+ ;; (subset? (any ...) (any ...) if the terms in the first list are a subset of those in the second
+
  dict-lookup ; ((any_key any_val) ...) any_key-target -> any_val or #f
  ;; Returns the first value associated with the given key in the given Redex alist, or #f if not found
 
@@ -36,8 +42,9 @@
 
 ;; ---------------------------------------------------------------------------------------------------
 
-(require racket/match
-         racket/set
+(require racket/list
+         racket/match
+         (rename-in racket/set [subset? r:subset?])
          redex/reduction-semantics)
 
 (define-language all-lang)
@@ -54,6 +61,36 @@
   (check-false (term (different? (a b c) (a b c))))
   (check-true (term (different? a (a))))
   (check-true (term (different? (a b c) (a b d)))))
+
+
+(define-judgment-form all-lang
+  #:mode (distinct? I)
+  #:contract (distinct? (any ...))
+  [(side-condition ,(= (length (term (any ...)))
+                       (length (remove-duplicates (term (any ...))))))
+   -------------------------------------------------------------------
+   (distinct? (any ...))])
+
+(module+ test
+  (check-true (judgment-holds (distinct? ( x y z))))
+  (check-true (judgment-holds (distinct? ())))
+  (check-false (judgment-holds (distinct? (a a))))
+  (check-false (judgment-holds (distinct? (a b a))))
+  (check-false (judgment-holds (distinct? (x y a b c d x e)))))
+
+(define-judgment-form all-lang
+  #:mode (subset? I I)
+  #:contract (subset? (any ...) (any ...))
+  [(side-condition (r:subset? (term any_1) (term any_2)))
+   ------------------------------------------------------
+   (subset? any_1 any_2)])
+
+(module+ test
+  (check-true (judgment-holds (subset? () (a b c))))
+  (check-true (judgment-holds (subset? () ())))
+  (check-true (judgment-holds (subset? (a b) ())))
+  (check-true (judgment-holds (subset? (a b) (a c))))
+  (check-true (judgment-holds (subset? (a b) (b a c)))))
 
 ;; ---------------------------------------------------------------------------------------------------
 ;; Dictionary operations
