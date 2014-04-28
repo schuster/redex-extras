@@ -8,6 +8,9 @@
  distinct?
  ;; (distinct? (any ...)) if all of the terms in the list are distinct from one another
 
+ disjoint?
+ ;; (disjoint? (any_1 ...) (any_2 ...)) if the two sets (any_1 ...) and (any_2 ...) are disjoint
+
  subset?
  ;; (subset? (any ...) (any ...) if the terms in the first list are a subset of those in the second
 
@@ -77,6 +80,24 @@
   (check-false (judgment-holds (distinct? (a a))))
   (check-false (judgment-holds (distinct? (a b a))))
   (check-false (judgment-holds (distinct? (x y a b c d x e)))))
+
+(define-judgment-form all-lang
+  #:mode (disjoint? I I)
+  #:contract (disjoint? (any ...) (any ...))
+  [(side-condition
+    ,(set-empty? (set-intersect (list->set (term (any_1 ...)))
+                                (list->set (term (any_2 ...))))))
+   --------------------------------------------------------------
+   (disjoint? (any_1 ...) (any_2 ...))])
+
+(module+ test
+  (check-true (judgment-holds (disjoint? () ())))
+  (check-true (judgment-holds (disjoint? (x) ())))
+  (check-false (judgment-holds (disjoint? (x) (x))))
+  (check-false (judgment-holds (disjoint? (y x) (x y))))
+  (check-false (judgment-holds (disjoint? (x) (x y))))
+  (check-true (judgment-holds (disjoint? (a b) (c d e))))
+  (check-false (judgment-holds (disjoint? (a b q c) (d e q f g)))))
 
 (define-judgment-form all-lang
   #:mode (subset? I I)
